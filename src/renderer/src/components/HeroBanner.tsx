@@ -17,7 +17,7 @@ const HeroBanner = ({ featuredContent = [] }: HeroBannerProps) => {
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % featuredContent.length)
-    }, 5000)
+    }, 20000)
 
     return () => clearInterval(interval)
   }, [isAutoPlaying, featuredContent.length])

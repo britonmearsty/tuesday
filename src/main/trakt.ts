@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+import * as https from 'https'
 // @ts-ignore - trakt.tv does not have official TS typings
 import Trakt from 'trakt.tv'
 
@@ -154,10 +155,19 @@ function writeJson<T>(file: string, data: T): void {
 function getEnvCredentials(): { clientId: string; clientSecret: string } {
   const creds = { clientId: '', clientSecret: '' }
   try {
-    // 1. Try to read from process.env
-    creds.clientId = process.env.TRAKT_CLIENT_ID || process.env.MAIN_VITE_TRAKT_CLIENT_ID || ''
-    creds.clientSecret =
-      process.env.TRAKT_CLIENT_SECRET || process.env.MAIN_VITE_TRAKT_CLIENT_SECRET || ''
+    // 1. Try to read from Vite injected import.meta.env
+    // @ts-ignore
+    const viteClientId = import.meta.env ? import.meta.env.MAIN_VITE_TRAKT_CLIENT_ID : undefined
+    // @ts-ignore
+    const viteClientSecret = import.meta.env ? import.meta.env.MAIN_VITE_TRAKT_CLIENT_SECRET : undefined
+
+    // 2. Try to read from process.env
+    creds.clientId = viteClientId || process.env.TRAKT_CLIENT_ID || process.env.MAIN_VITE_TRAKT_CLIENT_ID || ''
+    creds.clientSecret = viteClientSecret || process.env.TRAKT_CLIENT_SECRET || process.env.MAIN_VITE_TRAKT_CLIENT_SECRET || ''
+    
+    if (creds.clientId) {
+      console.log('[Trakt] Credentials loaded, clientId length:', creds.clientId.length)
+    }
 
     // 2. Fall back to reading the root .env file directly (double protection for all bundlers/dev/prod environments)
     if (!creds.clientId || !creds.clientSecret) {
@@ -181,8 +191,18 @@ function getEnvCredentials(): { clientId: string; clientSecret: string } {
         currentDir = parent
       }
 
+      // Traverse upwards from the PARENT of app.getAppPath() (covers the install dir when app is packaged in asar)
+      currentDir = path.dirname(app.getAppPath())
+      for (let i = 0; i < 5; i++) {
+        targetPaths.push(path.join(currentDir, '.env'))
+        const parent = path.dirname(currentDir)
+        if (parent === currentDir) break
+        currentDir = parent
+      }
+
       for (const p of targetPaths) {
         if (fs.existsSync(p)) {
+          console.log('[Trakt] Found .env at:', p)
           const lines = fs.readFileSync(p, 'utf-8').split('\n')
           for (const line of lines) {
             const trimmed = line.trim()
@@ -206,6 +226,70 @@ function getEnvCredentials(): { clientId: string; clientSecret: string } {
     console.error('[Trakt] Error loading .env credentials:', err)
   }
   return creds
+}
+
+/**
+ * Low-level Trakt OAuth POST using Node's native https.request.
+ * Chromium's fetch strips the Authorization header for CORS cross-origin requests,
+ * so we bypass it entirely by going straight to the Node.js HTTP layer.
+ */
+function traktOAuthPost(extraFields: Record<string, string>): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    // Read credentials from the same env/.env resolution used by TraktService
+    const creds = getEnvCredentials()
+    if (!creds.clientId || !creds.clientSecret) {
+      return reject(new Error('Trakt client is not configured.'))
+    }
+
+    const basicAuth = Buffer.from(`${creds.clientId}:${creds.clientSecret}`).toString('base64')
+
+    const bodyPairs: Record<string, string> = {
+      client_id: creds.clientId,
+      client_secret: creds.clientSecret,
+      redirect_uri: 'urn:ietf:wg:oauth:2.0:oob',
+      ...extraFields
+    }
+    const body = new URLSearchParams(bodyPairs).toString()
+
+    const req = https.request(
+      'https://api.trakt.tv/oauth/token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'tuesday/1.0.0 (Electron)',
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Length': Buffer.byteLength(body)
+        }
+      },
+      (res) => {
+        let data = ''
+        res.on('data', chunk => (data += chunk))
+        res.on('end', () => {
+          if (res.statusCode === 401) {
+            return reject(
+              new Error(`Trakt OAuth 401: ${res.headers['www-authenticate'] || 'unauthorized'} — body: ${data.slice(0, 200)}`)
+            )
+          }
+          if (res.statusCode !== 200 && res.statusCode !== 201) {
+            return reject(new Error(`Trakt OAuth failed (${res.statusCode}): ${data.slice(0, 200)}`))
+          }
+          try {
+            resolve(JSON.parse(data))
+          } catch {
+            reject(new Error(`Invalid JSON from Trakt: ${data.slice(0, 200)}`))
+          }
+        })
+      }
+    )
+    req.on('error', reject)
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Trakt OAuth request timed out'))
+    })
+    req.write(body)
+    req.end()
+  })
 }
 
 export class TraktService {
@@ -259,16 +343,28 @@ export class TraktService {
       }) as TraktInstance
 
       if (this.config.tokens) {
-        // Automatically imports and auto-refreshes tokens if needed
-        const newTokens = await this.traktInstance.import_token(this.config.tokens)
-        this.config.tokens = newTokens
-        this.saveConfig()
-        console.log('[Trakt] Token session restored/refreshed')
+        // Manually refresh/import tokens with proper Basic Auth
+        // (the library's import_token/refresh_token uses _exchange which omits Basic Auth headers)
+        if (this.config.tokens.expires < Date.now()) {
+          const body = await traktOAuthPost({
+            refresh_token: this.config.tokens.refresh_token,
+            grant_type: 'refresh_token'
+          })
+
+          this.config.tokens = {
+            access_token: String(body.access_token),
+            refresh_token: String(body.refresh_token),
+            expires: (Number(body.created_at) + Number(body.expires_in)) * 1000
+          } as unknown as TraktTokens
+          this.saveConfig()
+          console.log('[Trakt] Token session restored/refreshed')
+        } else {
+          console.log('[Trakt] Token session restored')
+        }
+        await this.traktInstance.import_token(this.config.tokens)
       }
     } catch (err) {
       console.error('[Trakt] Failed to initialize SDK or restore session:', err)
-      // Only wipe session if the error is explicitly an authentication/grant failure
-      // (e.g. token has been revoked or is invalid). If it's a network issue (DNS/timeout), keep it!
       const errMsg = String(err).toLowerCase()
       const isAuthError =
         errMsg.includes('invalid_grant') ||
@@ -396,35 +492,39 @@ export class TraktService {
    * Exchanges standard manual PIN/authorization code for session tokens
    */
   public async exchangeCode(code: string): Promise<boolean> {
-    if (!this.traktInstance) {
+    if (!this.config.clientId || !this.config.clientSecret) {
       throw new Error('Trakt client is not configured.')
     }
-    try {
-      // exchange_code automatically sets internal tokens and calculates 'expires'
-      const exchangedTokens = await this.traktInstance.exchange_code(code.trim())
 
-      // Export the properly formatted tokens containing access_token, refresh_token, and expires
-      const exportedTokens = this.traktInstance.export_token()
-      const finalTokens = exchangedTokens || exportedTokens
+    console.log('[Trakt exchangeCode] clientId:', this.config.clientId)
+    console.log('[Trakt exchangeCode] clientSecret len:', this.config.clientSecret.length)
+    console.log('[Trakt exchangeCode] process.env.TRAKT_CLIENT_ID:', process.env.TRAKT_CLIENT_ID || '(not set)')
+    console.log('[Trakt exchangeCode] process.env.MAIN_VITE_TRAKT_CLIENT_ID:', process.env.MAIN_VITE_TRAKT_CLIENT_ID || '(not set)')
 
-      this.config.tokens = finalTokens as unknown as TraktTokens
-      this.saveConfig()
-      console.log('[Trakt] OAuth Manual Token Exchange Successful!')
-      // Resolve standard initPromise immediately so subsequent API/scrobble requests continue
-      this.initPromise = Promise.resolve()
+    const body = await traktOAuthPost({
+      code: code.trim(),
+      grant_type: 'authorization_code'
+    })
 
-      // Fetch and cache the user profile immediately
-      try {
-        await this.getUserProfile()
-      } catch (profileErr) {
-        console.error('[Trakt] Failed to pre-fetch user profile after token exchange:', profileErr)
-      }
-
-      return true
-    } catch (err) {
-      console.error('[Trakt] Manual token exchange failed:', err)
-      throw err
+    const finalTokens: TraktTokens = {
+      access_token: String(body.access_token),
+      refresh_token: String(body.refresh_token),
+      expires: (Number(body.created_at) + Number(body.expires_in)) * 1000
     }
+
+    this.config.tokens = finalTokens
+    this.saveConfig()
+    console.log('[Trakt] OAuth Manual Token Exchange Successful!')
+    this.initPromise = this.initTrakt()
+    await this.initPromise
+
+    try {
+      await this.getUserProfile()
+    } catch (profileErr) {
+      console.error('[Trakt] Failed to pre-fetch user profile after token exchange:', profileErr)
+    }
+
+    return true
   }
 
   /**

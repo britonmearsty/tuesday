@@ -238,6 +238,7 @@ export default function HomePage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null)
 
   const { history } = useWatchHistory()
+  const { getIds } = useLibraryActions()
   const continueWatching = history.filter((x) => x.progress > 0 && x.progress < 95)
 
   useEffect(() => {
@@ -315,6 +316,46 @@ export default function HomePage(): React.ReactElement {
                 items: validShows
               })
             }
+          }
+          
+          // Load Library
+          try {
+            const libraryIds = Array.from(
+              new Set([
+                ...getIds('liked'),
+                ...getIds('watchlist'),
+                ...getIds('watching'),
+                ...getIds('watched'),
+                ...getIds('pinned')
+              ])
+            )
+            if (libraryIds.length > 0) {
+              const libraryItems = await Promise.all(
+                libraryIds.slice(0, 15).map(async (id) => {
+                  try {
+                    const numericId = Number(id.replace(/^(movie|series)-/, ''))
+                    if (id.startsWith('movie-')) {
+                      return await tmdbApi.getMovieDetails(numericId)
+                    } else {
+                      return await tmdbApi.getTVShowDetails(numericId)
+                    }
+                  } catch {
+                    return null
+                  }
+                })
+              )
+              const validLibrary = libraryItems.filter(Boolean) as Media[]
+              if (validLibrary.length > 0) {
+                result.sections.unshift({
+                  title: 'Your Library',
+                  type: 'mixed',
+                  sortBy: 'library',
+                  items: validLibrary
+                })
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to load library on homepage', err)
           }
         } catch (err) {
           console.warn('Trakt not connected or failed to fetch recommendations', err)

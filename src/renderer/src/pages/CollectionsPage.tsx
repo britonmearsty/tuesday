@@ -75,6 +75,7 @@ export function CollectionsPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const [trendingPage, setTrendingPage] = useState(1)
   const [popularPage, setPopularPage] = useState(1)
@@ -300,6 +301,16 @@ export function CollectionsPage(): React.JSX.Element {
     [navigate]
   )
 
+  const filteredCollections = collections.filter((c) =>
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const filteredTrendingLists = trendingLists.filter((l) =>
+    l.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const filteredPopularLists = popularLists.filter((l) =>
+    l.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="page-container" style={{ animation: 'fadeIn 0.3s ease-out' }}>
       <div className="catalog-section">
@@ -315,7 +326,31 @@ export function CollectionsPage(): React.JSX.Element {
             gap: '12px'
           }}
         >
-          <h2 style={{ margin: 0 }}>Collections</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <h2 style={{ margin: 0 }}>Collections</h2>
+            <div className="collection-search-container">
+              <svg 
+                className="collection-search-icon" 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                className="collection-search-input"
+                placeholder="Search collections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
 
           <div className="library-tabs">
             {isTraktConnected && (
@@ -374,7 +409,7 @@ export function CollectionsPage(): React.JSX.Element {
         ) : activeTab === 'franchises' ? (
           /* 1. Curated Franchises View */
           <VirtualGrid
-            items={collections}
+            items={filteredCollections}
             renderItem={(collection) => (
               <div onClick={() => handleCollectionClick(collection.id)} className="collection-card">
                 {collection.background && (
@@ -422,7 +457,7 @@ export function CollectionsPage(): React.JSX.Element {
           />
         ) : (
           <VirtualGrid
-            items={activeTab === 'trending' ? trendingLists : popularLists}
+            items={activeTab === 'trending' ? filteredTrendingLists : filteredPopularLists}
             renderItem={(list) => (
               <div onClick={() => handleCollectionClick(list.id, true)} className="collection-card">
                 {list.background ? (
