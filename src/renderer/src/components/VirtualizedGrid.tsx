@@ -10,7 +10,7 @@ interface VirtualizedGridProps<T> {
 export function VirtualizedGrid<T>({
   items,
   renderItem,
-  minColumnWidth = 130,
+  minColumnWidth = 170,
   gap = 16
 }: VirtualizedGridProps<T>): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)

@@ -12,6 +12,7 @@ export interface WatchHistoryItem {
   season?: number // most recent season watched
   episode?: number // most recent episode watched
   updatedAt: number // timestamp in milliseconds
+  traktId?: number // Trakt playback ID for removal
 }
 
 export interface EpisodeProgress {
@@ -58,7 +59,7 @@ function saveEpisodeProgressMap(data: Record<string, EpisodeProgress>): void {
 
 export function useWatchHistory(): {
   history: WatchHistoryItem[]
-  saveProgress: (item: Omit<WatchHistoryItem, 'updatedAt'>) => void
+  saveProgress: (item: Omit<WatchHistoryItem, 'updatedAt'> & { traktId?: number }) => void
   getProgress: (
     id: string,
     season?: number,
@@ -68,18 +69,18 @@ export function useWatchHistory(): {
     | undefined
   removeFromHistory: (id: string) => void
   clearHistory: () => void
-} {
+ } {
   const [, forceUpdate] = useState(0)
 
   useEffect(() => {
     const onStoreChange = (): void => forceUpdate((n) => n + 1)
     listeners.push(onStoreChange)
-    return () => {
+    return (): void => {
       listeners = listeners.filter((fn) => fn !== onStoreChange)
     }
   }, [])
 
-  const saveProgress = useCallback((item: Omit<WatchHistoryItem, 'updatedAt'>) => {
+  const saveProgress = useCallback((item: Omit<WatchHistoryItem, 'updatedAt'> & { traktId?: number }) => {
     console.log('[useWatchHistoryStore] saveProgress called with item:', item)
     const currentHistory = getHistory()
     const now = Date.now()

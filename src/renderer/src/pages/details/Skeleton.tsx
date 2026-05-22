@@ -270,7 +270,7 @@ export function ShimmerSkeleton(): React.JSX.Element {
                     <div
                       style={{
                         ...shimmerStyle,
-                        width: '130px',
+                        width: '170px',
                         height: '195px',
                         borderRadius: '8px',
                         marginBottom: '8px'
@@ -320,7 +320,7 @@ export function ShimmerSkeleton(): React.JSX.Element {
                     <div
                       style={{
                         ...shimmerStyle,
-                        width: '130px',
+                        width: '170px',
                         height: '195px',
                         borderRadius: '8px',
                         marginBottom: '8px'

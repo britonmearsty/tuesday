@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowRight, X } from 'lucide-react'
 import type { Media } from '../types/media'
-import HeroBanner from '../components/HeroBanner'
 import { useWatchHistory } from '../hooks/useWatchHistoryStore'
 import { useLibraryActions } from '../hooks/useLibraryStore'
 import { tmdbApi } from '../utils/tmdb'
+import HeroBanner from '../components/HeroBanner'
 import {
   VirtualizedHorizontalList,
   type VirtualizedHorizontalListHandle
@@ -129,8 +129,8 @@ const CatalogRow = ({ title, items, type, sortBy }: CatalogRowProps): React.JSX.
         ref={scrollRef}
         items={items}
         renderItem={(item) => <MediaCard movie={item} />}
-        itemWidth={138}
-        itemHeight={230}
+        itemWidth={170}
+        itemHeight={305}
         gap={12}
       />
     </div>
@@ -143,6 +143,7 @@ interface ContinueWatchingCardProps {
 
 const ContinueWatchingCard = ({ item }: ContinueWatchingCardProps): React.JSX.Element => {
   const navigate = useNavigate()
+  const { removeFromHistory } = useWatchHistory()
 
   const handleClick = (): void => {
     const type = item.type === 'movie' ? 'movie' : 'tv'
@@ -150,15 +151,40 @@ const ContinueWatchingCard = ({ item }: ContinueWatchingCardProps): React.JSX.El
     navigate(`/details/${type}/${tmdbId}`)
   }
 
+  const handleDelete = async (e: React.MouseEvent): Promise<void> => {
+    e.stopPropagation()
+
+    // Remove from local history
+    removeFromHistory(item.id)
+
+    // Also remove from Trakt playback progress if we have the Trakt ID
+    if (item.traktId != null) {
+      try {
+        await window.api.traktRemovePlaybackProgress(item.traktId)
+      } catch (err) {
+        console.error('Failed to remove from Trakt playback progress:', err)
+      }
+    }
+  }
+
   return (
-    <div className="movie-card" onClick={handleClick}>
+    <div className="movie-card horizontal" onClick={handleClick}>
       <div className="movie-card-poster">
-        {item.poster ? (
-          <img src={item.poster} alt={item.name} loading="lazy" />
+        {item.background || item.poster ? (
+          <img src={item.background || item.poster || undefined} alt={item.name} loading="lazy" />
         ) : (
           <div className="movie-card-placeholder">?</div>
         )}
         <div className="movie-card-overlay" />
+
+        {/* Delete button */}
+        <button
+          className="continue-watching-delete-btn"
+          onClick={handleDelete}
+          title="Remove from Continue Watching"
+        >
+          <X size={14} />
+        </button>
 
         {/* Progress bar overlay */}
         <div className="continue-watching-progress-bar-container">
@@ -215,8 +241,8 @@ const ContinueWatchingRow = ({ items }: ContinueWatchingRowProps): React.JSX.Ele
         ref={scrollRef}
         items={items}
         renderItem={(item) => <ContinueWatchingCard item={item} />}
-        itemWidth={138}
-        itemHeight={230}
+        itemWidth={280}
+        itemHeight={210}
         gap={12}
       />
     </div>
@@ -238,7 +264,6 @@ export default function HomePage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null)
 
   const { history } = useWatchHistory()
-  const { getIds } = useLibraryActions()
   const continueWatching = history.filter((x) => x.progress > 0 && x.progress < 95)
 
   useEffect(() => {
@@ -317,46 +342,7 @@ export default function HomePage(): React.ReactElement {
               })
             }
           }
-          
-          // Load Library
-          try {
-            const libraryIds = Array.from(
-              new Set([
-                ...getIds('liked'),
-                ...getIds('watchlist'),
-                ...getIds('watching'),
-                ...getIds('watched'),
-                ...getIds('pinned')
-              ])
-            )
-            if (libraryIds.length > 0) {
-              const libraryItems = await Promise.all(
-                libraryIds.slice(0, 15).map(async (id) => {
-                  try {
-                    const numericId = Number(id.replace(/^(movie|series)-/, ''))
-                    if (id.startsWith('movie-')) {
-                      return await tmdbApi.getMovieDetails(numericId)
-                    } else {
-                      return await tmdbApi.getTVShowDetails(numericId)
-                    }
-                  } catch {
-                    return null
-                  }
-                })
-              )
-              const validLibrary = libraryItems.filter(Boolean) as Media[]
-              if (validLibrary.length > 0) {
-                result.sections.unshift({
-                  title: 'Your Library',
-                  type: 'mixed',
-                  sortBy: 'library',
-                  items: validLibrary
-                })
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to load library on homepage', err)
-          }
+
         } catch (err) {
           console.warn('Trakt not connected or failed to fetch recommendations', err)
         }

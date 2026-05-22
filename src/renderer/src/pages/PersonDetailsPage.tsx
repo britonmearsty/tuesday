@@ -30,7 +30,7 @@ interface PersonDetails {
   }
 }
 
-const CARD_WIDTH = 130
+const CARD_WIDTH = 170
 
 const PersonDetailsPageSkeleton = (): React.JSX.Element => (
   <div>
@@ -73,7 +73,7 @@ const PersonDetailsPageSkeleton = (): React.JSX.Element => (
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
           gap: '16px',
           marginTop: 16
         }}

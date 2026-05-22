@@ -31,7 +31,8 @@
     "electron-updater": "^6.3.9",
     "lucide-react": "^1.14.0",
     "react-router-dom": "^7.15.0",
-    "trakt.tv": "^8.2.0"
+    "trakt.tv": "^8.2.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",

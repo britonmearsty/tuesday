@@ -21,7 +21,7 @@ function ContentCard({ item, mediaType, navigate }: ContentCardProps): React.JSX
   }
 
   return (
-    <div className="movie-card" style={{ flex: '0 0 130px', margin: 0 }} onClick={handleClick}>
+    <div className="movie-card" style={{ flex: '0 0 170px', margin: 0 }} onClick={handleClick}>
       <div className="movie-card-poster">
         {item.poster ? (
           <img

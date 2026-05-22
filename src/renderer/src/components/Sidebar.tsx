@@ -26,7 +26,7 @@ interface SidebarProps {
   onNavigatePinned: (item: Media) => void
 }
 
-const Sidebar: FC<SidebarProps> = ({ activePage, onPageChange, pinnedItems, onNavigatePinned }) => {
+const Sidebar: FC<SidebarProps & { isPlayer?: boolean }> = ({ activePage, onPageChange, pinnedItems, onNavigatePinned, isPlayer }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [canGoBack, setCanGoBack] = useState(false)
@@ -92,7 +92,7 @@ const Sidebar: FC<SidebarProps> = ({ activePage, onPageChange, pinnedItems, onNa
   ]
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{ display: isPlayer ? 'none' : undefined }}>
       <div className="sidebar-header">
         <span className="app-title">Tuesday</span>
         <div className="nav-buttons">
@@ -101,7 +101,7 @@ const Sidebar: FC<SidebarProps> = ({ activePage, onPageChange, pinnedItems, onNa
             aria-label="Go back"
             onClick={handleGoBack}
             disabled={!canGoBack}
-            style={{ opacity: canGoBack ? 1 : 0.3, cursor: canGoBack ? 'pointer' : 'not-allowed' }}
+            style={{ opacity: canGoBack ? 1 : 0.3, cursor: 'default' }}
           >
             <ChevronLeft size={18} />
           </button>
@@ -112,7 +112,7 @@ const Sidebar: FC<SidebarProps> = ({ activePage, onPageChange, pinnedItems, onNa
             disabled={!canGoForward}
             style={{
               opacity: canGoForward ? 1 : 0.3,
-              cursor: canGoForward ? 'pointer' : 'not-allowed'
+              cursor: 'default'
             }}
           >
             <ChevronRight size={18} />

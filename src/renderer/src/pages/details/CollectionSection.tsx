@@ -77,7 +77,7 @@ export function CollectionSection({
               <div
                 key={item.id}
                 className={`movie-card franchise-movie-card ${isCurrent ? 'movie-card--current' : ''}`}
-                style={{ flex: '0 0 130px', margin: 0 }}
+                style={{ flex: '0 0 170px', margin: 0 }}
                 onClick={() => handleMovieClick(item.id, isCurrent)}
               >
                 <div className="movie-card-poster">

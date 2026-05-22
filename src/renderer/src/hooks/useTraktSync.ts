@@ -155,18 +155,19 @@ export function useTraktSync(): void {
             // Only save if progress is different (to avoid endless triggering)
             if (!existing || Math.abs(existing.progress - progress) > 1) {
               console.log(`[TraktSync] Syncing progress to shelf for ${name} (${progress}%):`)
-              saveProgress({
-                id: mediaId,
-                type: mediaType,
-                name,
-                poster,
-                background,
-                timestamp,
-                duration,
-                progress,
-                season,
-                episode
-              })
+               saveProgress({
+                 id: mediaId,
+                 type: mediaType,
+                 name,
+                 poster,
+                 background,
+                 timestamp,
+                 duration,
+                 progress,
+                 season,
+                 episode,
+                 traktId: item.id
+               })
             }
           }
         } catch (historyErr) {

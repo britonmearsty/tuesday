@@ -4,6 +4,7 @@ import type { Movie, TVShow, MovieDetails, TVShowDetails } from '../../types/med
 import { useDetailsData } from './useDetailsData'
 import { useUserLibraryData } from '../../hooks/useUserLibraryData'
 import { useWatchHistory } from '../../hooks/useWatchHistoryStore'
+import { usePlayerStore } from '../../hooks/usePlayerStore'
 import { HeroSection } from './HeroSection'
 import { HeaderContent, Genres, Overview } from './ContentSections'
 import { EpisodesSection } from './EpisodesSection'
@@ -54,11 +55,15 @@ export function MediaDetailsPage({ movie }: { movie: Movie | TVShow }): React.JS
 
   const handlePlayTrailer = useCallback(() => {
     if (trailerUrl) {
-      navigate(
-        `/player?url=${encodeURIComponent(trailerUrl)}&title=${encodeURIComponent(`${movie.name} - Trailer`)}`
-      )
+      usePlayerStore.getState().openPlayer({
+        url: trailerUrl,
+        title: `${movie.name} - Trailer`,
+        embed: false,
+        id: movie.id,
+        mediaType: movie.type
+      })
     }
-  }, [trailerUrl, movie.name, navigate])
+  }, [trailerUrl, movie.name, movie.id, movie.type])
 
   const handleWatch = useCallback(
     (episodeNumber?: number) => {
@@ -103,22 +108,19 @@ export function MediaDetailsPage({ movie }: { movie: Movie | TVShow }): React.JS
         episode: e
       })
 
-      const queryParams = new URLSearchParams()
-      queryParams.set('url', streamUrl)
-      queryParams.set('title', movie.name)
-      queryParams.set('embed', 'true')
-      queryParams.set('id', movie.id)
-      queryParams.set('mediaType', movie.type)
-      if (movie.poster) queryParams.set('poster', movie.poster)
-      if (movie.background) queryParams.set('background', movie.background)
-      if (movie.type !== 'movie') {
-        queryParams.set('season', String(s))
-        queryParams.set('episode', String(e))
-      }
-
-      navigate(`/player?${queryParams.toString()}`)
+      usePlayerStore.getState().openPlayer({
+        url: streamUrl,
+        title: movie.name,
+        embed: true,
+        id: movie.id,
+        mediaType: movie.type,
+        poster: movie.poster,
+        background: movie.background,
+        season: movie.type !== 'movie' ? s : undefined,
+        episode: movie.type !== 'movie' ? e : undefined
+      })
     },
-    [movie, selectedSeason, navigate, getProgress, saveProgress]
+    [movie, selectedSeason, getProgress, saveProgress]
   )
 
   const isMovie = (m: Movie | TVShow): m is Movie => m.type === 'movie'

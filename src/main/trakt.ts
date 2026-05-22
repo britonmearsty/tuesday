@@ -569,6 +569,8 @@ export class TraktService {
       }
     }
 
+    console.log('[Trakt] Scrobble body:', JSON.stringify(payload))
+
     try {
       if (state === 'start') {
         return await this.traktInstance.scrobble.start(payload)

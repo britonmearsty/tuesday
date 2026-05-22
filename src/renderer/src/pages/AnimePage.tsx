@@ -8,7 +8,7 @@ import { MovieCard } from '../components/MovieCard'
 import Dropdown from '../components/Dropdown'
 import { ScrollToTop } from '../components/ScrollToTop'
 
-const CARD_WIDTH = 130
+const CARD_WIDTH = 170
 
 const AnimePageSkeleton = (): React.JSX.Element => (
   <div className="catalog-section">
@@ -22,7 +22,7 @@ const AnimePageSkeleton = (): React.JSX.Element => (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
         gap: '16px'
       }}
     >

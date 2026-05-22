@@ -6,7 +6,7 @@ import { VirtualGrid } from '../components/VirtualGrid'
 import { SkeletonCard } from '../components/Skeleton'
 import { useLibraryActions } from '../hooks/useLibraryStore'
 
-const CARD_WIDTH = 130
+const CARD_WIDTH = 170
 
 const STYLE_TABS = [
   { key: 'liked' as const, label: 'Favorites' },
@@ -30,7 +30,7 @@ const LibraryPageSkeleton = (): React.JSX.Element => (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
         gap: '16px'
       }}
     >

@@ -26,7 +26,7 @@ export const VirtualizedHorizontalList = forwardRef(function VirtualizedHorizont
     items,
     renderItem,
     itemWidth = 138,
-    itemHeight = 230,
+    itemHeight = 305,
     gap = 8,
     overscan = 3,
     className = 'media-row'

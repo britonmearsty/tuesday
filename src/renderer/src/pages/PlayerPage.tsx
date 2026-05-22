@@ -4,28 +4,30 @@ import { VideoPlayer, type SubtitleTrack } from '../components/VideoPlayer'
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer'
 import { useWatchHistory } from '../hooks/useWatchHistoryStore'
 import { useLibraryActions } from '../hooks/useLibraryStore'
+import { usePlayerStore } from '../hooks/usePlayerStore'
 import '../components/player.css'
 
 function PlayerPage(): React.JSX.Element {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const playerStore = usePlayerStore()
 
-  const urlParam = searchParams.get('url') || ''
-  const tracksParam = searchParams.get('tracks') || ''
-  const autoPlayParam = searchParams.get('autoplay')
+  const urlParam = playerStore.isOpen ? playerStore.url : searchParams.get('url') || ''
+  const tracksParam = playerStore.isOpen ? playerStore.tracks || '' : searchParams.get('tracks') || ''
+  const autoPlayParam = playerStore.isOpen ? String(playerStore.autoPlay) : searchParams.get('autoplay')
   const autoPlay = autoPlayParam !== 'false' && autoPlayParam !== '0'
-  const isEmbed = searchParams.get('embed') === 'true'
+  const isEmbed = playerStore.isOpen ? playerStore.embed : searchParams.get('embed') === 'true'
 
-  // Progress tracking search params
-  const mediaId = searchParams.get('id') || ''
-  const mediaType = searchParams.get('mediaType') || ''
-  const mediaTitle = searchParams.get('title') || ''
-  const mediaPoster = searchParams.get('poster') || ''
-  const mediaBackground = searchParams.get('background') || ''
-  const seasonParam = searchParams.get('season')
-  const episodeParam = searchParams.get('episode')
-  const season = seasonParam ? Number(seasonParam) : undefined
-  const episode = episodeParam ? Number(episodeParam) : undefined
+  // Progress tracking params
+  const mediaId = playerStore.isOpen ? (playerStore.id || '') : searchParams.get('id') || ''
+  const mediaType = playerStore.isOpen ? (playerStore.mediaType || '') : searchParams.get('mediaType') || ''
+  const mediaTitle = playerStore.isOpen ? (playerStore.title || '') : searchParams.get('title') || ''
+  const mediaPoster = playerStore.isOpen ? (playerStore.poster || '') : searchParams.get('poster') || ''
+  const mediaBackground = playerStore.isOpen ? (playerStore.background || '') : searchParams.get('background') || ''
+  const seasonParam = playerStore.isOpen ? playerStore.season : searchParams.get('season')
+  const episodeParam = playerStore.isOpen ? playerStore.episode : searchParams.get('episode')
+  const season = seasonParam !== undefined && seasonParam !== null ? Number(seasonParam) : undefined
+  const episode = episodeParam !== undefined && episodeParam !== null ? Number(episodeParam) : undefined
 
   const { saveProgress } = useWatchHistory()
   const { set: setLibraryActive } = useLibraryActions()
@@ -34,12 +36,13 @@ function PlayerPage(): React.JSX.Element {
   const scrobbleSent = useRef<{ start: boolean; stop: boolean }>({ start: false, stop: false })
   const lastScrobbleProgress = useRef<number>(0)
 
-  // Scrobble "pause" on player unmount (exit) to capture exact watch checkpoint
+  // Scrobble "stop" on player unmount (exit) – finalises the watch session on Trakt.
+  // 'stop' at whatever progress was last recorded is what marks the item as watched.
   useEffect(() => {
     const currentScrobble = scrobbleSent
     const currentLastProgress = lastScrobbleProgress
     return () => {
-      const syncPauseOnClose = async (): Promise<void> => {
+      const syncStopOnClose = async (): Promise<void> => {
         try {
           const traktConfig = await window.api.traktGetSettings()
           if (
@@ -50,21 +53,21 @@ function PlayerPage(): React.JSX.Element {
             const numericTmdbId = Number(mediaId.replace(/^(movie|series)-/, ''))
             const type = mediaType || (mediaId.startsWith('movie-') ? 'movie' : 'series')
 
-            await window.api.traktScrobble('pause', currentLastProgress.current, {
+            await window.api.traktScrobble('stop', currentLastProgress.current, {
               type: type as 'movie' | 'series',
               title: mediaTitle,
               tmdbId: numericTmdbId,
               season: season,
               episode: episode
             })
-            console.log('[Trakt] Playback pause scrobbled on player exit.')
+            console.log('[Trakt] Playback stop scrobbled on player exit.')
           }
         } catch (err) {
-          console.error('[Trakt] Unmount pause scrobble failed:', err)
+          console.error('[Trakt] Unmount stop scrobble failed:', err)
         }
       }
-      syncPauseOnClose().catch((err) => {
-        console.error('[Trakt] Unmount pause execution failed:', err)
+      syncStopOnClose().catch((err) => {
+        console.error('[Trakt] Unmount stop execution failed:', err)
       })
     }
   }, [mediaId, mediaType, mediaTitle, season, episode])
@@ -334,7 +337,11 @@ function PlayerPage(): React.JSX.Element {
   }
 
   const handleBack = (): void => {
-    navigate(-1)
+    if (playerStore.isOpen) {
+      playerStore.closePlayer()
+    } else {
+      navigate(-1)
+    }
   }
 
   return (

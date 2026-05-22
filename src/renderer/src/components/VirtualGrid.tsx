@@ -26,10 +26,10 @@ interface VirtualGridProps<T> {
 export function VirtualGrid<T>({
   items,
   renderItem,
-  minColumnWidth = 130,
+  minColumnWidth = 170,
   gap = 16,
   overscan = 3,
-  cardHeight = 240
+  cardHeight = 305
 }: VirtualGridProps<T>): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollElRef  = useRef<Element | null>(null)

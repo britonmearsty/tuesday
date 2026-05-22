@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { usePlayerStore } from '../hooks/usePlayerStore'
 
 interface PlaylistCacheEntry {
   data: string
@@ -287,11 +288,13 @@ function LiveTVPage(): React.JSX.Element {
   const handleChannelClick = useCallback(
     (channel: IptvChannel): void => {
       setSelectedChannel(channel)
-      navigate(
-        `/player?url=${encodeURIComponent(channel.url)}&title=${encodeURIComponent(channel.name)}`
-      )
+      usePlayerStore.getState().openPlayer({
+        url: channel.url,
+        title: channel.name,
+        embed: false
+      })
     },
-    [navigate]
+    []
   )
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

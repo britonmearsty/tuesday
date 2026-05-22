@@ -24,6 +24,7 @@ import { useLibraryActions } from './hooks/useLibraryStore'
 import { tmdbApi } from './utils/tmdb'
 import type { Media } from './types/media'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { usePlayerStore } from './hooks/usePlayerStore'
 import './assets/layout.css'
 
 import { useTraktSync } from './hooks/useTraktSync'
@@ -205,7 +206,9 @@ function AppContent(): React.JSX.Element {
 
   const currentPath = location.pathname
   const currentPage = getPageFromPath(currentPath)
-  const isPlayer = currentPath === '/player'
+  const isPlayerRoute = currentPath === '/player'
+  const playerStore = usePlayerStore()
+  const isPlayer = isPlayerRoute || playerStore.isOpen
 
   const [visitedPages, setVisitedPages] = useState<
     Array<{
@@ -230,45 +233,42 @@ function AppContent(): React.JSX.Element {
     ]
   })
 
-  const [lastPath, setLastPath] = useState(currentPath)
+  useEffect(() => {
+    if (currentPath === '/player' || isPlayer) return
 
-  if (currentPath !== lastPath) {
-    setLastPath(currentPath)
-
-    if (currentPath !== '/player') {
-      const match = ROUTES.find((r) => matchPath(r.path, currentPath))
-      if (match) {
-        const matchInfo = matchPath(match.path, currentPath)
-        if (matchInfo) {
-          const existingIndex = visitedPages.findIndex((p) => p.path === currentPath)
+    const match = ROUTES.find((r) => matchPath(r.path, currentPath))
+    if (match) {
+      const matchInfo = matchPath(match.path, currentPath)
+      if (matchInfo) {
+        setVisitedPages((prev) => {
+          const existingIndex = prev.findIndex((p) => p.path === currentPath)
           if (existingIndex !== -1) {
-            const next = [...visitedPages]
+            const next = [...prev]
             const [item] = next.splice(existingIndex, 1)
             next.push(item)
-            setVisitedPages(next)
-          } else {
-            const next = [
-              ...visitedPages,
-              {
-                path: currentPath,
-                routePath: match.path,
-                params: matchInfo.params,
-                Component: match.component as React.ComponentType
-              }
-            ]
-
-            if (next.length > 35) {
-              const evictIndex = next.findIndex((p) => !isPrimaryTab(p.path))
-              if (evictIndex !== -1) {
-                next.splice(evictIndex, 1)
-              }
-            }
-            setVisitedPages(next)
+            return next
           }
-        }
+          const next = [
+            ...prev,
+            {
+              path: currentPath,
+              routePath: match.path,
+              params: matchInfo.params,
+              Component: match.component as React.ComponentType
+            }
+          ]
+
+          if (next.length > 35) {
+            const evictIndex = next.findIndex((p) => !isPrimaryTab(p.path))
+            if (evictIndex !== -1) {
+              next.splice(evictIndex, 1)
+            }
+          }
+          return next
+        })
       }
     }
-  }
+  }, [currentPath, isPlayer])
 
   useEffect(() => {
     if (currentPath === '/player') return
@@ -282,14 +282,13 @@ function AppContent(): React.JSX.Element {
     <>
       {showOnboarding && <OnboardingPage onComplete={() => setShowOnboarding(false)} />}
       <div className="app-layout">
-        {!isPlayer && (
-          <Sidebar
-            activePage={currentPage}
-            onPageChange={handlePageChange}
-            pinnedItems={pinnedItems}
-            onNavigatePinned={handleNavigatePinned}
-          />
-        )}
+        <Sidebar
+          activePage={currentPage}
+          onPageChange={handlePageChange}
+          pinnedItems={pinnedItems}
+          onNavigatePinned={handleNavigatePinned}
+          isPlayer={isPlayer}
+        />
         <div className="main-area">
           {!isPlayer && (
             <Titlebar title={currentPage.charAt(0).toUpperCase() + currentPage.slice(1)} />

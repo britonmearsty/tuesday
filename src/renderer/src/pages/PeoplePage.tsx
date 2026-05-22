@@ -6,14 +6,14 @@ import { VirtualGrid } from '../components/VirtualGrid'
 import { SkeletonCard } from '../components/Skeleton'
 import { ScrollToTop } from '../components/ScrollToTop'
 
-const CARD_WIDTH = 130
+const CARD_WIDTH = 170
 
 const PeoplePageSkeleton = (): React.JSX.Element => (
   <div className="section">
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
         gap: '16px'
       }}
     >

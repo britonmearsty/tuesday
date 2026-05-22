@@ -926,6 +926,31 @@ export class TmdbService {
     return this.makeRequest(`/tv/${tvId}/season/${seasonNumber}`)
   }
 
+  async getSeasonEpisodes(tvId: number, seasonNumber: number): Promise<{
+    id: number
+    name: string
+    overview: string
+    season_number: number
+    poster_path: string | null
+    air_date: string | null
+    episode_count: number
+    episodes: Array<{
+      id: number
+      name: string
+      overview: string
+      episode_number: number
+      season_number: number
+      still_path: string | null
+      air_date: string
+      vote_average: number
+      vote_count: number
+      runtime: number | null
+      production_code: string | null
+    }>
+  }> {
+    return this.makeRequest(`/tv/${tvId}/season/${seasonNumber}`)
+  }
+
   async getGenres(): Promise<{ genres: TmdbGenre[] }> {
     return this.makeRequest('/genre/movie/list')
   }
